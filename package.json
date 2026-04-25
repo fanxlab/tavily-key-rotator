@@ -1,5 +1,5 @@
 {
-  "name": "tavily-key-rotator",
+  "name": "@fanxlab/tavily-key-rotator",
   "version": "1.0.0",
   "description": "Auto-rotates Tavily API keys on 429 rate limit errors for OpenClaw",
   "type": "module",
