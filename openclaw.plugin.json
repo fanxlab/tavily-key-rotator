@@ -1,0 +1,12 @@
+{
+  "id": "tavily-key-rotator",
+  "name": "Tavily Key Rotator",
+  "description": "Auto-rotates Tavily API keys on 429 rate limit errors",
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "contracts": {}
+}
