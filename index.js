@@ -1,10 +1,13 @@
 import { execSync } from "child_process";
 import { resolve } from "path";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const ROTATOR_SCRIPT = resolve(
   process.env.HOME,
   ".openclaw/workspace-feynman/scripts/tavily_key_rotator.sh"
 );
+
+const KEYS_FILE = resolve(process.env.HOME, ".openclaw/tavily-keys.json");
 
 function isRateLimitError(error) {
   if (!error) return false;
@@ -28,9 +31,36 @@ function isTavilyTool(toolName) {
   );
 }
 
+function ensureKeysFile() {
+  if (existsSync(KEYS_FILE)) return;
+
+  const currentKey = (() => {
+    try {
+      const cfg = JSON.parse(readFileSync(
+        resolve(process.env.HOME, ".openclaw/openclaw.json"), "utf-8"
+      ));
+      return cfg?.plugins?.entries?.tavily?.config?.webSearch?.apiKey || "";
+    } catch {
+      return "";
+    }
+  })();
+
+  const template = {
+    current: currentKey,
+    pool: currentKey ? [currentKey] : []
+  };
+
+  try {
+    writeFileSync(KEYS_FILE, JSON.stringify(template, null, 2), "utf-8");
+    console.log(`[tavily-key-rotator] Created ${KEYS_FILE} — please add your backup API keys to the "pool" array`);
+  } catch (e) {
+    console.warn(`[tavily-key-rotator] Could not create keys file: ${e.message}`);
+  }
+}
+
 function rotateKey(errorOutput) {
   try {
-    const result = execSync(`bash "${ROTATOR_SCRIPT}" '${errorOutput.replace(/'/g, "'\\''")}'`, {
+    const result = execSync(`bash "${ROTATOR_SCRIPT}" '${String(errorOutput).replace(/'/g, "'\\''")}'`, {
       encoding: "utf-8",
       timeout: 10000,
     });
@@ -43,23 +73,23 @@ function rotateKey(errorOutput) {
 const plugin = {
   register(api) {
     api.on("after_tool_call", async (event) => {
-      // Only handle Tavily/search tools
       if (!isTavilyTool(event.toolName)) return;
 
-      // Check if there was an error
       const errorStr = event.error ? String(event.error) : "";
       if (!errorStr) return;
 
-      // Check if it's a rate limit error
       if (!isRateLimitError(errorStr)) return;
 
       console.log(`[tavily-key-rotator] Rate limit detected for ${event.toolName}, rotating key...`);
 
+      // Ensure keys file exists before attempting rotation
+      ensureKeysFile();
+
       const rotated = rotateKey(errorStr);
       if (rotated) {
-        console.log("[tavily-key-rotator] Key rotated successfully. Next Tavily call will use new key.");
+        console.log("[tavily-key-rotator] Key rotated. Next Tavily call will use new key.");
       } else {
-        console.log("[tavily-key-rotator] Key rotation failed or no more keys available.");
+        console.warn("[tavily-key-rotator] Rotation failed. Check ~/.openclaw/tavily-keys.json");
       }
     });
   },
