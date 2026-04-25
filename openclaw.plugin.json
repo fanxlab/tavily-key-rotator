@@ -5,8 +5,6 @@
   "enabledByDefault": true,
   "configSchema": {
     "type": "object",
-    "additionalProperties": false,
-    "properties": {}
-  },
-  "contracts": {}
+    "additionalProperties": true
+  }
 }
